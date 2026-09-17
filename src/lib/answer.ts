@@ -235,6 +235,161 @@ export async function generateAnswer(
     : callOpenAICompatible(cfg, prompt);
 }
 
+export type TokenCallback = (full: string) => void;
+
+/** Feed SSE `data:` payloads to `onData` until `[DONE]` or stream end. */
+async function pumpSSE(
+  res: Response,
+  onData: (data: string) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  const body = res.body;
+  if (!body) throw new Error("No response body for streaming.");
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+  for (;;) {
+    if (signal?.aborted) {
+      await reader.cancel().catch(() => {});
+      throw new DOMException("Aborted", "AbortError");
+    }
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    let idx: number;
+    while ((idx = buf.indexOf("\n")) >= 0) {
+      const line = buf.slice(0, idx).trim();
+      buf = buf.slice(idx + 1);
+      if (!line.startsWith("data:")) continue;
+      const data = line.slice(5).trim();
+      if (data === "[DONE]") return;
+      if (data) onData(data);
+    }
+  }
+  if (buf.trim().startsWith("data:")) {
+    const data = buf.trim().slice(5).trim();
+    if (data && data !== "[DONE]") onData(data);
+  }
+}
+
+async function streamAnthropic(
+  cfg: AnswerConfig,
+  prompt: string,
+  onToken: TokenCallback,
+  signal?: AbortSignal,
+): Promise<string> {
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    signal,
+    headers: {
+      "content-type": "application/json",
+      "x-api-key": cfg.apiKey,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: cfg.model,
+      max_tokens: 800,
+      stream: true,
+      system: SYSTEM_PROMPT,
+      messages: [{ role: "user", content: prompt }],
+    }),
+  });
+  if (!res.ok || !res.headers.get("content-type")?.includes("text/event-stream")) {
+    throw new Error("stream-unavailable");
+  }
+  let full = "";
+  await pumpSSE(
+    res,
+    (data) => {
+      try {
+        const json = JSON.parse(data) as {
+          type?: string;
+          delta?: { type?: string; text?: string };
+        };
+        if (json.type === "content_block_delta" && typeof json.delta?.text === "string") {
+          full += json.delta.text;
+          onToken(full);
+        }
+      } catch {
+        // ignore keep-alive / partial JSON
+      }
+    },
+    signal,
+  );
+  if (!full.trim()) throw new Error("stream-unavailable");
+  return full.trim();
+}
+
+async function streamOpenAICompatible(
+  cfg: AnswerConfig,
+  prompt: string,
+  onToken: TokenCallback,
+  signal?: AbortSignal,
+): Promise<string> {
+  const base = (cfg.baseUrl ?? "https://api.openai.com/v1").replace(/\/$/, "");
+  const res = await fetch(`${base}/chat/completions`, {
+    method: "POST",
+    signal,
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${cfg.apiKey}`,
+    },
+    body: JSON.stringify({
+      model: cfg.model,
+      max_tokens: 800,
+      stream: true,
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: prompt },
+      ],
+    }),
+  });
+  if (!res.ok || !res.headers.get("content-type")?.includes("text/event-stream")) {
+    throw new Error("stream-unavailable");
+  }
+  let full = "";
+  await pumpSSE(
+    res,
+    (data) => {
+      try {
+        const json = JSON.parse(data) as {
+          choices?: { delta?: { content?: string } }[];
+        };
+        const piece = json.choices?.[0]?.delta?.content ?? "";
+        if (piece) {
+          full += piece;
+          onToken(full);
+        }
+      } catch {
+        // ignore keep-alive
+      }
+    },
+    signal,
+  );
+  if (!full.trim()) throw new Error("stream-unavailable");
+  return full.trim();
+}
+
+/**
+ * Stream a cited answer, calling `onToken` with the growing text.
+ * Throws `stream-unavailable` when the endpoint won't stream so the caller
+ * can fall back to `generateAnswer`. Never returns a partial on abort —
+ * the caller keeps whatever was last rendered.
+ */
+export async function generateAnswerStream(
+  query: string,
+  sources: AnswerSource[],
+  cfg: AnswerConfig,
+  onToken: TokenCallback,
+  signal?: AbortSignal,
+): Promise<string> {
+  if (sources.length === 0) throw new Error("No readable sources to summarize.");
+  const prompt = buildAnswerPrompt(query, sources);
+  return cfg.provider === "anthropic"
+    ? streamAnthropic(cfg, prompt, onToken, signal)
+    : streamOpenAICompatible(cfg, prompt, onToken, signal);
+}
+
 /** Prepend the answer section; citations [N] match the page's Links section. */
 export function attachAnswer(markdown: string, answer: string, modelLabel: string): string {
   return `## Answer\n\n${answer}\n\n_AI summary (${modelLabel}) — citations refer to the Links below._\n\n---\n\n${markdown}`;

@@ -12,6 +12,7 @@ import {
   detectAnswerConfig,
   gatherSources,
   generateAnswer,
+  generateAnswerStream,
 } from "./lib/answer";
 import { loadAppConfig } from "./lib/config";
 import { resolveTheme, syntaxStyleFromTheme } from "./lib/theme";
@@ -89,6 +90,7 @@ export function App() {
   const [back, setBack] = useState<string[]>([]);
   const [fwd, setFwd] = useState<string[]>([]);
   const reqId = useRef(0);
+  const streamAbort = useRef<AbortController | null>(null);
   const inputRef = useRef<InputRenderable | null>(null);
   const scrollRef = useRef<ScrollBoxRenderable | null>(null);
   const [appConfig] = useState(loadAppConfig);
@@ -125,6 +127,8 @@ export function App() {
         return;
       }
       const id = ++reqId.current;
+      streamAbort.current?.abort();
+      streamAbort.current = null;
       const isSearch = norm.kind === "search";
       setLoading(true);
       setLoadingLabel(
@@ -150,38 +154,82 @@ export function App() {
         }
         // Keep the query editable after a search; show the URL after a page load.
         setUrlText(norm.kind === "search" ? norm.query : data.finalUrl);
-        let finalData = data;
         let note = norm.kind === "search" && norm.note ? ` · ${norm.note}` : "";
+        // Show results immediately, then stream the AI summary on top.
+        setPage(data);
+        setLoading(false);
+        setStatus(
+          `${data.title} · ${data.links.length} links · ${data.ms}ms${note}`,
+        );
         // Answer-engine summary on top of search results.
         if (norm.kind === "search" && aiOn && data.links.length > 0) {
           // Config file is re-read per search, so adding a key needs no restart.
           const cfg = detectAnswerConfig(process.env, loadAppConfig().ai);
           if (!cfg) {
-            note += " · AI off (put a key in config.json)";
+            setStatus(
+              `${data.title} · ${data.links.length} links · ${data.ms}ms${note} · AI off (put a key in config.json)`,
+            );
           } else {
+            const ctrl = new AbortController();
+            streamAbort.current = ctrl;
             try {
-              setLoadingLabel("Summarizing");
+              setStatus(
+                `${data.title} · ${data.links.length} links · gathering sources…${note}`,
+              );
               const sources = await gatherSources(
                 data.links.map((l) => ({ title: l.text, url: l.url })),
               );
               if (id !== reqId.current) return;
-              const answer = await generateAnswer(norm.query, sources, cfg);
-              if (id !== reqId.current) return;
-              finalData = {
-                ...data,
-                markdown: attachAnswer(data.markdown, answer, cfg.label),
+              if (sources.length === 0) {
+                setStatus(
+                  `${data.title} · ${data.links.length} links · ${data.ms}ms${note} · AI skipped (no readable sources)`,
+                );
+                return;
+              }
+              setStatus(`${data.title} · summarizing…${note}`);
+              const onToken = (partial: string) => {
+                if (id !== reqId.current) return;
+                setPage({
+                  ...data,
+                  markdown: attachAnswer(data.markdown, `${partial} ▍`, cfg.label),
+                });
               };
-              note += " · AI ✓";
+              let answer: string;
+              try {
+                answer = await generateAnswerStream(
+                  norm.query,
+                  sources,
+                  cfg,
+                  onToken,
+                  ctrl.signal,
+                );
+              } catch (e) {
+                if (e instanceof DOMException && e.name === "AbortError") return;
+                if (e instanceof Error && e.message === "stream-unavailable") {
+                  answer = await generateAnswer(norm.query, sources, cfg);
+                } else {
+                  throw e;
+                }
+              }
+              if (id !== reqId.current) return;
+              setPage({
+                ...data,
+                markdown: attachAnswer(data.markdown, answer!, cfg.label),
+              });
+              setStatus(
+                `${data.title} · ${data.links.length} links · ${data.ms}ms${note} · AI ✓`,
+              );
             } catch (e) {
               if (id !== reqId.current) return;
-              note += ` · AI failed: ${e instanceof Error ? e.message : String(e)}`;
+              if (e instanceof DOMException && e.name === "AbortError") return;
+              setStatus(
+                `${data.title} · ${data.links.length} links · ${data.ms}ms${note} · AI failed: ${e instanceof Error ? e.message : String(e)}`,
+              );
+            } finally {
+              if (streamAbort.current === ctrl) streamAbort.current = null;
             }
           }
         }
-        setPage(finalData);
-        setStatus(
-          `${data.title} · ${data.links.length} links · ${data.ms}ms${note}`,
-        );
       } catch (e) {
         if (id !== reqId.current) return;
         setStatus(e instanceof Error ? e.message : String(e));

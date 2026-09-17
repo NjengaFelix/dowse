@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "model-document": {
+      "source": "NjengaFelix/model-document",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "ed9228d06cce0d101ca7d24bc14e9c30cdd1e370d91b4ec9cbf8f780de6db161"
+    }
+  }
+}

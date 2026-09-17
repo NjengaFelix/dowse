@@ -1,0 +1,34 @@
+{
+  "name": "dowse",
+  "description": "Terminal web browser with AI answers — dowse the web without leaving your terminal",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "dev": "node --experimental-ffi ./node_modules/tsx/dist/cli.mjs src/index.tsx",
+    "start": "node --experimental-ffi ./node_modules/tsx/dist/cli.mjs src/index.tsx",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "^11.5.1",
+      "onFail": "download"
+    }
+  },
+  "type": "module",
+  "dependencies": {
+    "@opentui/core": "^0.5.11",
+    "@opentui/react": "^0.5.11",
+    "react": "^19.3.0",
+    "web-tree-sitter": "0.25.10"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.3",
+    "@types/react": "^19.3.0",
+    "tsx": "^4.23.13",
+    "typescript": "^7.0.2"
+  }
+}

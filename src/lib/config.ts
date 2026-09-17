@@ -9,8 +9,20 @@ export interface AiFileConfig {
   baseUrl?: string;
 }
 
+export interface JevFileConfig {
+  /** Opt-in: Jev reranking only runs when this is true or JEV_ENABLED=1. */
+  enabled?: boolean;
+  apiKey?: string;
+  model?: string;
+  topK?: number;
+  evidenceMin?: number;
+  relevantMin?: number;
+  injectionMax?: number;
+}
+
 export interface AppConfig {
   ai?: AiFileConfig;
+  jev?: JevFileConfig;
   /** Theme selection: "system" (default), a built-in, or a custom file name. */
   theme?: string;
 }
@@ -34,22 +46,36 @@ export function loadConfigFile(file: string): AppConfig {
   try {
     const parsed = JSON.parse(readFileSync(file, "utf8")) as AppConfig;
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
-    if (!parsed.ai || typeof parsed.ai !== "object") return {};
-    const ai: AiFileConfig = { ...parsed.ai };
-    // Drop untouched template placeholders so they never shadow real values
-    // from lower-precedence files during the merge.
-    if (!ai.apiKey || /PASTE|EXAMPLE|YOUR[-_ ]?KEY|xxx+/i.test(ai.apiKey)) {
-      delete ai.apiKey;
+    const out: AppConfig = {};
+    if (typeof parsed.theme === "string") out.theme = parsed.theme;
+    if (parsed.ai && typeof parsed.ai === "object") {
+      const ai: AiFileConfig = { ...parsed.ai };
+      // Drop untouched template placeholders so they never shadow real values
+      // from lower-precedence files during the merge.
+      if (!ai.apiKey || /PASTE|EXAMPLE|YOUR[-_ ]?KEY|xxx+/i.test(ai.apiKey)) {
+        delete ai.apiKey;
+      }
+      out.ai = ai;
     }
-    return { ai };
+    if (parsed.jev && typeof parsed.jev === "object") {
+      const jev: JevFileConfig = { ...parsed.jev };
+      if (!jev.apiKey || /PASTE|EXAMPLE|YOUR[-_ ]?KEY|xxx+/i.test(jev.apiKey)) {
+        delete jev.apiKey;
+      }
+      out.jev = jev;
+    }
+    return out;
   } catch {
     return {};
   }
 }
 
 function mergeConfig(base: AppConfig, over: AppConfig): AppConfig {
-  if (!over.ai) return base;
-  return { ai: { ...base.ai, ...over.ai } };
+  const out: AppConfig = { ...base };
+  if (over.theme !== undefined) out.theme = over.theme;
+  if (over.ai) out.ai = { ...base.ai, ...over.ai };
+  if (over.jev) out.jev = { ...base.jev, ...over.jev };
+  return out;
 }
 
 /**

@@ -1,0 +1,17 @@
+{
+  "theme": "system",
+  "ai": {
+    "provider": "gemini",
+    "apiKey": "PASTE_YOUR_KEY_HERE",
+    "model": "gemini-2.5-flash"
+  },
+  "jev": {
+    "enabled": false,
+    "apiKey": "PASTE_YOUR_KEY_HERE",
+    "model": "jev-latest",
+    "topK": 3,
+    "evidenceMin": 0.55,
+    "relevantMin": 0.45,
+    "injectionMax": 0.7
+  }
+}

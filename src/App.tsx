@@ -14,6 +14,7 @@ import {
   generateAnswer,
   generateAnswerStream,
 } from "./lib/answer";
+import { detectJevConfig, gateSources } from "./lib/jev";
 import { loadAppConfig } from "./lib/config";
 import { resolveTheme, syntaxStyleFromTheme } from "./lib/theme";
 
@@ -64,6 +65,10 @@ function asSearchUrl(raw: string): { engine: SearchEngine; query: string } | nul
       const q = u.searchParams.get("q");
       if (q) return { engine: "ddg", query: q };
     }
+    if (u.hostname === "lite.duckduckgo.com" && u.pathname === "/lite/") {
+      const q = u.searchParams.get("q");
+      if (q) return { engine: "ddg", query: q };
+    }
     if (
       (u.hostname === "www.bing.com" || u.hostname === "bing.com") &&
       u.pathname === "/search" &&
@@ -87,6 +92,9 @@ export function App() {
   const [loading, setLoading] = useState(false);
   const [loadingLabel, setLoadingLabel] = useState("Loading");
   const [aiOn, setAiOn] = useState(true);
+  const [jevOn, setJevOn] = useState(
+    () => detectJevConfig(process.env, loadAppConfig().jev) !== null,
+  );
   const [back, setBack] = useState<string[]>([]);
   const [fwd, setFwd] = useState<string[]>([]);
   const reqId = useRef(0);
@@ -186,6 +194,20 @@ export function App() {
                 );
                 return;
               }
+              // Opt-in Jev rerank: filter to the most relevant sources before
+              // summarizing. Never blocks the answer — falls back on failure.
+              let answerSources = sources;
+              let jevNote = "";
+              const jevCfg = jevOn
+                ? detectJevConfig(process.env, loadAppConfig().jev)
+                : null;
+              if (jevCfg && sources.length > 1) {
+                setStatus(`${data.title} · reranking sources (Jev)…${note}`);
+                const gated = await gateSources(norm.query, sources, jevCfg, ctrl.signal);
+                if (id !== reqId.current) return;
+                answerSources = gated.sources;
+                if (!gated.skipped) jevNote = ` · Jev ${gated.kept}/${gated.total}`;
+              }
               setStatus(`${data.title} · summarizing…${note}`);
               const onToken = (partial: string) => {
                 if (id !== reqId.current) return;
@@ -198,7 +220,7 @@ export function App() {
               try {
                 answer = await generateAnswerStream(
                   norm.query,
-                  sources,
+                  answerSources,
                   cfg,
                   onToken,
                   ctrl.signal,
@@ -206,7 +228,7 @@ export function App() {
               } catch (e) {
                 if (e instanceof DOMException && e.name === "AbortError") return;
                 if (e instanceof Error && e.message === "stream-unavailable") {
-                  answer = await generateAnswer(norm.query, sources, cfg);
+                  answer = await generateAnswer(norm.query, answerSources, cfg);
                 } else {
                   throw e;
                 }
@@ -217,7 +239,7 @@ export function App() {
                 markdown: attachAnswer(data.markdown, answer!, cfg.label),
               });
               setStatus(
-                `${data.title} · ${data.links.length} links · ${data.ms}ms${note} · AI ✓`,
+                `${data.title} · ${data.links.length} links · ${data.ms}ms${note} · AI ✓${jevNote}`,
               );
             } catch (e) {
               if (id !== reqId.current) return;
@@ -238,7 +260,7 @@ export function App() {
         if (id === reqId.current) setLoading(false);
       }
     },
-    [page, aiOn],
+    [page, aiOn, jevOn],
   );
 
   const goBack = useCallback(() => {
@@ -312,6 +334,16 @@ export function App() {
         setStatus(next ? "AI answers on." : "AI answers off.");
         break;
       }
+      case "j": {
+        const next = !jevOn;
+        if (next && !detectJevConfig(process.env, loadAppConfig().jev)) {
+          setStatus("Jev off (opt-in: set TYPESAFE_API_KEY + JEV_ENABLED=1).");
+          break;
+        }
+        setJevOn(next);
+        setStatus(next ? "Jev rerank on." : "Jev rerank off.");
+        break;
+      }
     }
   });
 
@@ -368,7 +400,7 @@ export function App() {
 
       <box style={{ paddingX: 1, height: 1, width: "100%" }}>
         <text fg={theme.colors.muted}>
-          q quit · / find · esc read · b/f back/fwd · r reload · a AI{aiOn ? "✓" : "✗"} · N+enter opens [N]
+          q quit · / find · esc read · b/f back/fwd · r reload · a AI{aiOn ? "✓" : "✗"} · j Jev{jevOn ? "✓" : "✗"} · N+enter opens [N]
         </text>
       </box>
     </box>

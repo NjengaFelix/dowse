@@ -110,18 +110,36 @@ export interface FetchedText {
   ms: number;
 }
 
+export interface FetchTextOptions {
+  method?: string;
+  /** URL-encoded form body, e.g. `q=...`. Sets content-type automatically. */
+  form?: Record<string, string>;
+  headers?: Record<string, string>;
+}
+
 /** Plain fetch with timeout + browser UA, shared by pages and search. */
-export async function fetchText(requestUrl: string): Promise<FetchedText> {
+export async function fetchText(requestUrl: string, opts?: FetchTextOptions): Promise<FetchedText> {
   const started = Date.now();
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
   try {
+    const body = opts?.form ? new URLSearchParams(opts.form).toString() : undefined;
     const res = await fetch(requestUrl, {
       signal: ctrl.signal,
       redirect: "follow",
+      method: opts?.method ?? (body ? "POST" : "GET"),
+      body,
       headers: {
         "User-Agent": BROWSER_UA,
         Accept: "text/html,application/xhtml+xml,text/*;q=0.9,*/*;q=0.1",
+        "Accept-Language": "en-US,en;q=0.9",
+        Referer: "https://duckduckgo.com/",
+        DNT: "1",
+        "Upgrade-Insecure-Requests": "1",
+        ...(body
+          ? { "Content-Type": "application/x-www-form-urlencoded" }
+          : {}),
+        ...opts?.headers,
       },
     });
     if (!res.ok) {

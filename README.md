@@ -100,6 +100,7 @@ mise exec -- pnpm build:exe   # → dist/dowse-linux-x64
 | `b` / `f` | Back / forward |
 | `r` | Reload |
 | `a` | Toggle AI answers |
+| `j` | Toggle Jev rerank (opt-in, needs `TYPESAFE_API_KEY` + `JEV_ENABLED=1`) |
 | `↑` `↓` `pgup` `pgdn` `home` `end` | Scroll while reading |
 
 ## AI answers (answer engine)
@@ -120,12 +121,19 @@ variables. Layered like opencode, lowest precedence first:
 
 ```jsonc
 // ~/.config/opentui-browser/config.json (project ./config.json overrides it)
+// See config.example.json for all options.
 {
   "theme": "system",               // system | dark | light | tokyonight | catppuccin | gruvbox | nord | <custom>
   "ai": {
     "provider": "gemini",          // anthropic | openai | openrouter | gemini | ollama
     "apiKey": "AIza…",             // your key (aistudio.google.com → Get API Key)
     "model": "gemini-2.5-flash"    // optional override
+  },
+  "jev": {
+    "enabled": false,              // opt-in rerank — also needs JEV_ENABLED=1 or this true + key
+    "apiKey": "ts_…",              // or TYPESAFE_API_KEY env
+    "model": "jev-latest",         // optional override
+    "topK": 3                      // keep top 3 sources (optional: evidenceMin, relevantMin, injectionMax)
   }
 }
 ```
@@ -139,6 +147,9 @@ variables. Layered like opencode, lowest precedence first:
 | `AI_PROVIDER=anthropic\|openai` | Force provider (key from `AI_API_KEY`, `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`) |
 | `AI_MODEL` | Override the model |
 | `AI_BASE_URL` | Override the endpoint (e.g. local Ollama `http://localhost:11434/v1`) |
+| `TYPESAFE_API_KEY` | Jev rerank key (opt-in, also needs `JEV_ENABLED=1`) |
+| `JEV_ENABLED=1` | Enable Jev rerank for this run |
+| `JEV_MODEL` / `JEV_TOP_K` | Override the Jev model / kept sources (defaults `jev-latest` / `3`) |
 
 ```sh
 # paste your key into ~/.config/opentui-browser/config.json, then:
@@ -147,6 +158,20 @@ mise exec -- pnpm dev
 
 Without any key the browser works normally and notes "AI off" in the status
 line. Summary failures never break results — the error is noted, results stay.
+
+### Jev rerank (opt-in)
+
+When enabled, gathered sources are scored with Jev (relevance / usable
+evidence / prompt injection) before summarizing: injections dropped, top `topK`
+kept, status shows `Jev 3/5`. Citations `[N]` still match the Links section.
+Off by default; on any Jev failure the plain sources are used instead.
+
+```sh
+TYPESAFE_API_KEY=ts_… JEV_ENABLED=1 mise exec -- pnpm dev
+```
+
+`j` toggles it per session (needs a key + opt-in, otherwise the status line
+says so).
 
 ## Theming (opencode-style, Omarchy-aware)
 

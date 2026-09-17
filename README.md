@@ -61,6 +61,12 @@ chmod +x dowse-linux-x64
 ./dowse-linux-x64
 ```
 
+## Install (mise)
+
+```sh
+mise use ubi:arttivhq/dowse   # pulls the release binary, no runtime needed
+```
+
 ## Install (npm)
 
 Requires Node.js ≥ 26.4:

@@ -66,7 +66,7 @@ chmod +x dowse-linux-x64
 Requires Node.js ≥ 26.4:
 
 ```sh
-npm install -g dowse
+npm install -g @arttiv/dowse
 dowse
 ```
 

@@ -53,7 +53,7 @@ scripts pass the flag directly on the command line (`node --experimental-ffi
 ## Install (binary)
 
 Grab `dowse-linux-x64` from the
-[latest release](https://github.com/NjengaFelix/dowse/releases/latest)
+[latest release](https://github.com/arttivhq/dowse/releases/latest)
 — a single self-contained executable for glibc Linux x64, no runtime needed:
 
 ```sh

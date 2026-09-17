@@ -8,10 +8,10 @@
   "files": ["src", "bin", "README.md", "ROADMAP.md"],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/NjengaFelix/dowse.git"
+    "url": "git+https://github.com/arttivhq/dowse.git"
   },
-  "homepage": "https://github.com/NjengaFelix/dowse",
-  "bugs": "https://github.com/NjengaFelix/dowse/issues",
+  "homepage": "https://github.com/arttivhq/dowse",
+  "bugs": "https://github.com/arttivhq/dowse/issues",
   "keywords": ["terminal", "browser", "tui", "opentui", "search", "ai", "reader"],
   "scripts": {
     "dev": "node --experimental-ffi ./node_modules/tsx/dist/cli.mjs src/index.tsx",

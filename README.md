@@ -50,6 +50,23 @@ OpenTUI needs Node ≥ 26.4 **with `--experimental-ffi`** — the `dev`/`start`
 scripts pass the flag directly on the command line (`node --experimental-ffi
 ./node_modules/tsx/dist/cli.mjs …`) because Node rejects it in `NODE_OPTIONS`.
 
+## Install (binary)
+
+Grab `dowse-linux-x64` from the
+[latest release](https://github.com/NjengaFelix/dowse/releases/latest)
+— a single self-contained executable for glibc Linux x64, no runtime needed:
+
+```sh
+chmod +x dowse-linux-x64
+./dowse-linux-x64
+```
+
+To build it yourself (Bun is used only as the bundler/compiler):
+
+```sh
+mise exec -- pnpm build:exe   # → dist/dowse-linux-x64
+```
+
 ## Usage
 
 | Input | Action |

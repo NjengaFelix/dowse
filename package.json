@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "node --experimental-ffi ./node_modules/tsx/dist/cli.mjs src/index.tsx",
     "start": "node --experimental-ffi ./node_modules/tsx/dist/cli.mjs src/index.tsx",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build:exe": "bun ./scripts/build.ts"
   },
   "keywords": [],
   "author": "",

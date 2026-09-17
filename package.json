@@ -2,7 +2,17 @@
   "name": "dowse",
   "description": "Terminal web browser with AI answers — dowse the web without leaving your terminal",
   "version": "0.1.0",
-  "main": "index.js",
+  "bin": {
+    "dowse": "./bin/dowse.mjs"
+  },
+  "files": ["src", "bin", "README.md", "ROADMAP.md"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NjengaFelix/dowse.git"
+  },
+  "homepage": "https://github.com/NjengaFelix/dowse",
+  "bugs": "https://github.com/NjengaFelix/dowse/issues",
+  "keywords": ["terminal", "browser", "tui", "opentui", "search", "ai", "reader"],
   "scripts": {
     "dev": "node --experimental-ffi ./node_modules/tsx/dist/cli.mjs src/index.tsx",
     "start": "node --experimental-ffi ./node_modules/tsx/dist/cli.mjs src/index.tsx",
@@ -24,12 +34,15 @@
     "@opentui/core": "^0.5.11",
     "@opentui/react": "^0.5.11",
     "react": "^19.3.0",
+    "tsx": "^4.23.13",
     "web-tree-sitter": "0.25.10"
   },
   "devDependencies": {
     "@types/node": "^22.20.3",
     "@types/react": "^19.3.0",
-    "tsx": "^4.23.13",
     "typescript": "^7.0.2"
+  },
+  "engines": {
+    "node": ">=26.4.0"
   }
 }

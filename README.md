@@ -61,6 +61,15 @@ chmod +x dowse-linux-x64
 ./dowse-linux-x64
 ```
 
+## Install (npm)
+
+Requires Node.js ≥ 26.4:
+
+```sh
+npm install -g dowse
+dowse
+```
+
 To build it yourself (Bun is used only as the bundler/compiler):
 
 ```sh

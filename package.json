@@ -1,5 +1,5 @@
 {
-  "name": "dowse",
+  "name": "@arttiv/dowse",
   "description": "Terminal web browser with AI answers — dowse the web without leaving your terminal",
   "version": "0.1.0",
   "bin": {

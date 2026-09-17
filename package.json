@@ -1,7 +1,7 @@
 {
   "name": "@arttiv/dowse",
   "description": "Terminal web browser with AI answers — dowse the web without leaving your terminal",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "bin": {
     "dowse": "./bin/dowse.mjs"
   },
